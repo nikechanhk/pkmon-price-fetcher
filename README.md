@@ -92,6 +92,69 @@ function GET_PSA10_PRICE(snkrId) {
     return 'Error: ' + error.message + ' (Check Apps Script logs)';
   }
 }
+
+
+/**
+ * Fetch latest NON-PSA transaction price for a given SNKR ID
+ * @param {string|number} snkrId - The SNKR ID to fetch price for
+ * @return {number|string} Latest NON-PSA transaction price in HKD, or error message
+ * @customfunction
+ */
+function GET_NON_PSA_PRICE(snkrId) {
+  if (!snkrId || snkrId === '') {
+    return 'Error: SNKR ID is required';
+  }
+
+  const cleanSnkrId = String(snkrId).trim();
+  const apiUrl = 'https://pkmon-tracking.zeabur.app/api/fetch-latest-non-psa-transaction-price';
+  const url = `${apiUrl}?snkrId=${encodeURIComponent(cleanSnkrId)}`;
+
+  try {
+    const response = UrlFetchApp.fetch(url, {
+      method: 'get',
+      muteHttpExceptions: true,
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'GoogleSheets/1.0'
+      },
+      validateHttpsCertificates: true
+    });
+
+    const statusCode = response.getResponseCode();
+    const responseText = response.getContentText();
+
+    if (!responseText || responseText.trim() === '') {
+      return 'Error: Empty response from server';
+    }
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      return 'Error: Invalid JSON response - ' + responseText.substring(0, 50);
+    }
+
+    if (statusCode === 200) {
+      if (data.success === true) {
+        const price = data.latestPriceHKD;
+        return price !== undefined && price !== null ? Number(price) : 0;
+      }
+      return 'Error: ' + (data.error || 'API returned success: false');
+    }
+
+    if (statusCode === 400) {
+      return 'Error: Bad request - ' + (data.error || 'Invalid snkrId');
+    }
+
+    if (statusCode === 500) {
+      return 'Error: Server error - ' + (data.error || 'Internal server error');
+    }
+
+    return 'Error: HTTP ' + statusCode + ' - ' + (data.error || responseText.substring(0, 50));
+  } catch (error) {
+    return 'Error: ' + error.message + ' (Check Apps Script logs)';
+  }
+}
 ```
 
 ## Step 3: 儲存並授權
@@ -107,11 +170,11 @@ function GET_PSA10_PRICE(snkrId) {
 
 ## Step 4: 在 Spreadsheet 中使用
 
-回到你的 Google Spreadsheet，現在可以使用以下兩個自訂函式：
+回到你的 Google Spreadsheet，現在可以使用以下自訂函式：
 
-### 方法 1：取得純數字價格
+### PSA10 — 取得純數字價格
 
-在任意儲存格輸入, 參數為snkr ID：
+在任意儲存格輸入：
 
 ```
 =GET_PSA10_PRICE(115274)
@@ -124,5 +187,19 @@ function GET_PSA10_PRICE(snkrId) {
 ```
 
 **輸出範例**：`1730`
+
+### 非 PSA — 取得純數字價格
+
+```
+=GET_NON_PSA_PRICE(618444)
+```
+
+或：
+
+```
+=GET_NON_PSA_PRICE(A2)
+```
+
+**輸出範例**：`1348`
 
 
